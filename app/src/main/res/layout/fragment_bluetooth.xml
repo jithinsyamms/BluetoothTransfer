@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2014 The Android Open Source Project
+
+     Licensed under the Apache License, Version 2.0 (the "License");
+     you may not use this file except in compliance with the License.
+     You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+     Unless required by applicable law or agreed to in writing, software
+     distributed under the License is distributed on an "AS IS" BASIS,
+     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+     See the License for the specific language governing permissions and
+     limitations under the License.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dip"
+        android:alpha="0.5"
+        android:orientation="horizontal"
+        android:paddingBottom="10dip"
+        android:paddingTop="10dip">
+
+        <TextView
+            android:id="@+id/bluetooth_enable_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_toLeftOf="@+id/bluetooth_switch"
+            android:paddingLeft="5dp"
+            android:textSize="17sp"
+            android:text="@string/bluetooth_title"
+            android:textColor="#000" />
+
+        <android.support.v7.widget.SwitchCompat
+            android:id="@+id/bluetooth_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentRight="true"
+            android:layout_marginRight="10dip"
+            android:layout_centerVertical="true" />
+
+    </RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/paired_layout"
+        android:layout_width="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/title_paired_devices"
+            android:layout_width="match_parent"
+            android:layout_height="30dip"
+            android:background="#777"
+            android:gravity="center_vertical"
+            android:paddingLeft="5dp"
+            android:text="@string/title_paired_devices"
+            android:textColor="#fff"
+            android:visibility="visible" />
+
+        <ListView
+            android:id="@+id/paired_devices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/paired_devices_empty"
+            android:layout_width="match_parent"
+            android:layout_height="30dip"
+            android:gravity="center"
+            android:text="@string/none_paired" />
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:id="@+id/new_devices_layout"
+        android:layout_width="match_parent"
+        android:layout_height="0dip"
+        android:layout_weight="2"
+        android:orientation="vertical">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:background="#777"
+            android:layout_height="wrap_content">
+            <TextView
+                android:id="@+id/title_new_devices"
+                android:layout_width="match_parent"
+                android:layout_height="30dip"
+
+                android:gravity="center_vertical"
+                android:paddingLeft="5dp"
+                android:text="@string/title_other_devices"
+                android:layout_alignParentLeft="true"
+                android:textColor="#fff"
+                android:visibility="visible" />
+            <ProgressBar
+                android:id="@+id/scan_progress"
+                android:layout_width="24dip"
+                android:layout_height="24dip"
+                android:layout_marginRight="15dip"
+                android:layout_centerVertical="true"
+                android:layout_alignParentRight="true"
+                android:visibility="gone"
+                android:indeterminate="true"
+                />
+        </RelativeLayout>
+
+
+        <ListView
+            android:id="@+id/new_devices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/new_devices_empty"
+            android:layout_width="match_parent"
+            android:layout_height="30dip"
+            android:gravity="center"
+            android:visibility="gone"
+            android:text="@string/none_found" />
+    </LinearLayout>
+
+
+    <Button
+        android:id="@+id/button_scan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dip"
+        android:background="#CCC"
+        android:layout_marginLeft="10dip"
+        android:layout_marginRight="10dip"
+        android:text="@string/button_scan" />
+</LinearLayout>

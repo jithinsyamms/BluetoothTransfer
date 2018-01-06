@@ -1,6 +1,7 @@
 package com.bluetooth.transfer;
 
 import android.Manifest;
+import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
@@ -47,35 +48,64 @@ public class MainActivity extends AppCompatActivity {
     private ListView scannedList;
     private List<BluetoothDevice> scannedDevices;
 
+    private boolean isBluetoothEnabled;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-
-        if (mBluetoothAdapter == null) {
-           return;
-        }
-        if (!mBluetoothAdapter.isEnabled()) {
-            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
-            return;
-        }
         start = (Button) findViewById(R.id.start);
         scannedList = (ListView) findViewById(R.id.list);
-        start();
+
+
+        /*checking bluetooth is available in device*/
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        if (mBluetoothAdapter == null) {
+           isBluetoothEnabled = false;
+            // TODO: 04/01/18 show bluetooth not available UI
+        }
+
+        else{
+            /* Asking user to enable BT if not enabled */
+            if (!mBluetoothAdapter.isEnabled()) {
+                Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+            }
+            else{
+                startScan();
+            }
+        }
     }
 
-    private void start(){
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if(requestCode == REQUEST_ENABLE_BT){
+            if(resultCode == Activity.RESULT_OK){
+                startScan();
+            }
+            else{
+                // TODO: 04/01/18 Bluetooth not enabled
+            }
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    private void checkBTPermission(){
+        if(!isBluetoothEnabled)
+            return;
+        accessLocationPermission();
+    }
+
+
+    private void startScan(){
+        if(!isBluetoothEnabled)
+            return;
 
         MY_UUID = UUID.randomUUID();
-        scannedDevices = new ArrayList<>();
 
+        scannedDevices = new ArrayList<>();
         IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_FOUND);
         registerReceiver(mReceiver, filter);
-
-        accessLocationPermission();
 
         scannedList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -132,14 +162,12 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void accessLocationPermission() {
-
         int accessFineLocation   = 0;
         int accessCoarseLocation = 0;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             accessFineLocation = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION);
             accessCoarseLocation = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
-
         List<String> listRequestPermission = new ArrayList<String>();
 
         if (accessCoarseLocation != PackageManager.PERMISSION_GRANTED) {
@@ -169,12 +197,12 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
 
-                    //TODO - Add your code here to start Discovery
+                    startScan();
 
                 }
                 break;
             default:
-                return;
+                break;
         }
     }
 
