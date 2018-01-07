@@ -130,6 +130,29 @@
             android:text="@string/none_found" />
     </LinearLayout>
 
+    <RelativeLayout
+        android:id="@+id/send_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        >
+        <EditText
+            android:id="@+id/sned_chat"
+            android:imeOptions="actionSend"
+            android:layout_width="match_parent"
+            android:layout_toLeftOf="@+id/send"
+            android:layout_height="wrap_content"
+            />
+        <Button
+            android:id="@+id/send"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentRight="true"
+            android:layout_marginRight="15dip"
+            android:text="Send"
+            />
+    </RelativeLayout>
+
 
     <Button
         android:id="@+id/button_scan"

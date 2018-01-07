@@ -9,21 +9,26 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
+import android.os.ParcelUuid;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentActivity;
 import android.support.v7.widget.SwitchCompat;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
+import android.view.inputmethod.EditorInfo;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
@@ -37,7 +42,10 @@ import java.util.Set;
 
 public class BluetoothFragment extends Fragment {
 
+    public static final String SELECTED_DEVICE = "device_address";
+
     private static final int REQUEST_ENABLE_PERMISSION = 3;
+
 
     public static final int SCAN_NOT_STARTED = 0;
     public static final int SCAN_STARTED = 1;
@@ -54,19 +62,19 @@ public class BluetoothFragment extends Fragment {
     private ListView pairedDevicesListView, newDevicesListView;
     private Button mScan;
     private ProgressBar scanProgress = null;
+    private EditText sendChat = null;
+    private Button sendButton = null;
+    private View sendLayout = null;
 
     private boolean scanStarted = false;
 
 
     private BluetoothDeviceAdapter mNewDevicesArrayAdapter;
 
+    private BluetoothService mChatService = null;
 
     public BluetoothFragment() {
         // Required empty public constructor
-    }
-
-    public static BluetoothFragment newInstance(String param1, String param2) {
-        return new BluetoothFragment();
     }
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
@@ -84,11 +92,77 @@ public class BluetoothFragment extends Fragment {
                 if (mNewDevicesArrayAdapter.getCount() == 0) {
                     newDevicesListView.setVisibility(View.GONE);
                     newDevicesEmpty.setVisibility(View.VISIBLE);
-                }
-                else{
+                } else {
                     newDevicesListView.setVisibility(View.VISIBLE);
                     newDevicesEmpty.setVisibility(View.GONE);
                 }
+            }
+        }
+    };
+
+    private AdapterView.OnItemClickListener mDeviceClickListener
+            = new AdapterView.OnItemClickListener() {
+        @Override
+        public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+            mBtAdapter.cancelDiscovery();
+            BluetoothDevice device = (BluetoothDevice) parent.getItemAtPosition(position);
+//            Intent intent = new Intent(getActivity(), BluetoothDetailActivity.class);
+//            intent.putExtra(SELECTED_DEVICE, device);
+//            getActivity().startActivity(intent);
+            connectDevice(device);
+        }
+    };
+
+    private final Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            FragmentActivity activity = getActivity();
+            switch (msg.what) {
+                case Constants.MESSAGE_STATE_CHANGE:
+                    switch (msg.arg1) {
+                        case BluetoothService.STATE_CONNECTED:
+                            sendLayout.setVisibility(View.VISIBLE);
+//                            setStatus(getString(R.string.title_connected_to, mConnectedDeviceName));
+//                            mConversationArrayAdapter.clear();
+                            break;
+                        case BluetoothService.STATE_CONNECTING:
+                            //setStatus(R.string.title_connecting);
+                            break;
+                        case BluetoothService.STATE_LISTEN:
+                        case BluetoothService.STATE_NONE:
+                            sendLayout.setVisibility(View.GONE);
+                            //setStatus(R.string.title_not_connected);
+                            break;
+                    }
+                    break;
+                case Constants.MESSAGE_WRITE:
+                    byte[] writeBuf = (byte[]) msg.obj;
+                    // construct a string from the buffer
+                    String writeMessage = new String(writeBuf);
+                   // mConversationArrayAdapter.add("Me:  " + writeMessage);
+                    break;
+                case Constants.MESSAGE_READ:
+                    byte[] readBuf = (byte[]) msg.obj;
+                    // construct a string from the valid bytes in the buffer
+                    String readMessage = new String(readBuf, 0, msg.arg1);
+                    Toast.makeText(activity,readMessage, Toast.LENGTH_SHORT).show();
+                   // mConversationArrayAdapter.add(mConnectedDeviceName + ":  " + readMessage);
+                    break;
+                case Constants.MESSAGE_DEVICE_NAME:
+                    // save the connected device's name
+
+                    String mConnectedDeviceName = msg.getData().getString(Constants.DEVICE_NAME);
+                    if (null != activity) {
+                      Toast.makeText(activity, "Connected to "
+                                + mConnectedDeviceName, Toast.LENGTH_SHORT).show();
+                    }
+                    break;
+                case Constants.MESSAGE_TOAST:
+                    if (null != activity) {
+                        Toast.makeText(activity, msg.getData().getString(Constants.TOAST),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                    break;
             }
         }
     };
@@ -97,7 +171,31 @@ public class BluetoothFragment extends Fragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mBtAdapter = BluetoothAdapter.getDefaultAdapter();
+        mChatService = new BluetoothService(mHandler);
     }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+    }
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (mChatService != null) {
+            mChatService.stop();
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (mChatService != null) {
+            if (mChatService.getState() == BluetoothService.STATE_NONE) {
+                mChatService.start();
+            }
+        }
+    }
+
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -112,6 +210,10 @@ public class BluetoothFragment extends Fragment {
 
         pairedDevicesListView = (ListView) view.findViewById(R.id.paired_devices);
         newDevicesListView = (ListView) view.findViewById(R.id.new_devices);
+
+        pairedDevicesListView.setOnItemClickListener(mDeviceClickListener);
+        newDevicesListView.setOnItemClickListener(mDeviceClickListener);
+
         mScan = (Button) view.findViewById(R.id.button_scan);
         mScan.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -137,12 +239,25 @@ public class BluetoothFragment extends Fragment {
                         setUpNewDevices(isChecked);
                         makeDiscoverable(isChecked);
                     }
-                },300);
+                }, 300);
 
             }
         });
 
         scanProgress = (ProgressBar) view.findViewById(R.id.scan_progress);
+        sendChat = (EditText) view.findViewById(R.id.sned_chat);
+        sendLayout = view.findViewById(R.id.send_layout);
+        sendLayout.setVisibility(View.GONE);
+        sendButton = (Button) view.findViewById(R.id.send);
+        sendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                String message = sendChat.getText().toString();
+                sendMessage(message);
+                sendChat.setText("");
+            }
+        });
+
 
         return view;
     }
@@ -162,18 +277,20 @@ public class BluetoothFragment extends Fragment {
             mBtAdapter.cancelDiscovery();
         }
         boolean started = mBtAdapter.startDiscovery();
-        if(started){
+        if (started) {
             newDevicesEmpty.setVisibility(View.GONE);
             scanProgress.setVisibility(View.VISIBLE);
             scanStarted = true;
             setUpNewDevices(mBtAdapter.isEnabled());
         }
     }
-    private void checkPermission(){
-        if(accessLocationPermission()){
+
+    private void checkPermission() {
+        if (accessLocationPermission()) {
             startScan();
         }
     }
+
     private void makeDiscoverable(boolean isEnabled) {
 //        if (isEnabled && mBtAdapter.getScanMode() != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
 //            Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
@@ -183,9 +300,8 @@ public class BluetoothFragment extends Fragment {
     }
 
 
-
     private boolean accessLocationPermission() {
-        int accessFineLocation   = 0;
+        int accessFineLocation = 0;
         int accessCoarseLocation = 0;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             accessFineLocation = getActivity().checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION);
@@ -230,19 +346,17 @@ public class BluetoothFragment extends Fragment {
             }
         } else {
             pairedDevicesLayout.setVisibility(View.GONE);
-            pairedDevicesArrayAdapter = null;
         }
     }
 
-    private void  setUpNewDevices(boolean isEnabled){
-        if (isEnabled){
+    private void setUpNewDevices(boolean isEnabled) {
+        if (isEnabled) {
             List<BluetoothDevice> newDevicesList = new ArrayList<>();
-            mNewDevicesArrayAdapter = new BluetoothDeviceAdapter(getActivity(),newDevicesList);
+            mNewDevicesArrayAdapter = new BluetoothDeviceAdapter(getActivity(), newDevicesList);
             newDevicesListView.setAdapter(mNewDevicesArrayAdapter);
-            newDevicesLayout.setVisibility(scanStarted ? View.VISIBLE:View.GONE);
+            newDevicesLayout.setVisibility(scanStarted ? View.VISIBLE : View.GONE);
             mScan.setVisibility(View.VISIBLE);
-        }
-        else{
+        } else {
             newDevicesLayout.setVisibility(View.GONE);
             mScan.setVisibility(View.GONE);
             scanStarted = false;
@@ -301,8 +415,8 @@ public class BluetoothFragment extends Fragment {
             this.devices = devices;
         }
 
-        public void add(BluetoothDevice device){
-            if(devices != null){
+        public void add(BluetoothDevice device) {
+            if (devices != null) {
                 devices.add(device);
                 notifyDataSetChanged();
             }
@@ -334,9 +448,8 @@ public class BluetoothFragment extends Fragment {
 
             BluetoothDevice device = (BluetoothDevice) getItem(position);
             ImageView btIconView = (ImageView) convertView.findViewById(R.id.bt_icon);
-
             int btIcon = device.getBluetoothClass().getDeviceClass();
-            switch(btIcon){
+            switch (btIcon) {
                 case BluetoothClass.Device.COMPUTER_LAPTOP:
                     btIcon = R.drawable.ic_laptop_black_24dp;
                     break;
@@ -353,7 +466,6 @@ public class BluetoothFragment extends Fragment {
                     convertView.findViewById(R.id.text_view_item_name);
             TextView textViewItemDescription = (TextView)
                     convertView.findViewById(R.id.text_view_item_description);
-
             textViewItemName.setText(device.getName());
             textViewItemDescription.setText(device.getAddress());
             return convertView;
@@ -366,18 +478,34 @@ public class BluetoothFragment extends Fragment {
             case REQUEST_ENABLE_PERMISSION:
                 if (grantResults.length > 0) {
                     for (int gr : grantResults) {
-                        // Check if request is granted or not
                         if (gr != PackageManager.PERMISSION_GRANTED) {
                             return;
                         }
                     }
-
                     startScan();
-
                 }
                 break;
             default:
                 break;
         }
+    }
+
+    private void sendMessage(String message) {
+        // Check that we're actually connected before trying anything
+        if (mChatService.getState() != BluetoothService.STATE_CONNECTED) {
+            Toast.makeText(getActivity(), R.string.not_connected, Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Check that there's actually something to send
+        if (message.length() > 0) {
+            byte[] send = message.getBytes();
+            mChatService.write(send);
+        }
+    }
+    private void connectDevice(BluetoothDevice device) {
+        // Get the device MAC address
+        // Attempt to connect to the device
+        mChatService.connect(device);
     }
 }
